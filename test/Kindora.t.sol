@@ -253,10 +253,6 @@ contract KindoraTest is Test {
         uint256 approveAmount = 1000 * 1e18;
         token.approve(user1, approveAmount);
         
-        // Exclude user2 from limits to simplify test
-        vm.prank(owner);
-        // Can't exclude after trading enabled, so we transfer to user2 which should work
-        
         // User1 transfers from owner to user2
         uint256 transferAmount = 500 * 1e18;
         
@@ -331,6 +327,9 @@ contract KindoraTest is Test {
         uint256 pairLiquidity = 100_000 * 1e18;
         token.transfer(pair, pairLiquidity);
         
+        // Advance time to avoid buy cooldown
+        vm.warp(block.timestamp + 11);
+        
         // Simulate buy: transfer from pair to user1
         uint256 buyAmount = 10_000 * 1e18;
         
@@ -356,6 +355,9 @@ contract KindoraTest is Test {
         // Transfer tokens to pair
         token.transfer(pair, 100_000 * 1e18);
         
+        // Advance time to avoid buy cooldown
+        vm.warp(block.timestamp + 11);
+        
         uint256 buyAmount = 10_000 * 1e18;
         uint256 burnAmount = (buyAmount * 1) / 100;
         
@@ -373,6 +375,9 @@ contract KindoraTest is Test {
         
         // Transfer tokens to pair
         token.transfer(pair, 100_000 * 1e18);
+        
+        // Advance time to avoid buy cooldown
+        vm.warp(block.timestamp + 11);
         
         uint256 buyAmount = 20_000 * 1e18;
         
@@ -587,6 +592,9 @@ contract KindoraTest is Test {
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
+        // Advance time to avoid buy cooldown
+        vm.warp(block.timestamp + 11);
+        
         // Try to buy more than maxTx
         uint256 buyAmount = MAX_TX + 1;
         
@@ -596,16 +604,41 @@ contract KindoraTest is Test {
     }
 
     function test_AntiWhale_MaxTxOnSell() public {
+        // Exclude user1 from limits to receive more than MAX_WALLET tokens
+        token.setExcludedFromLimits(user1, true);
+        
         // Enable trading
         token.enableTrading();
         
-        // Give user1 tokens (owner is excluded from limits, so transfer works)
-        token.transfer(user1, MAX_WALLET);
+        // Give user1 more than MAX_TX tokens (owner is excluded from limits, so transfer works)
+        uint256 userBalance = MAX_TX + 100 * 1e18; // Give enough to attempt over-limit sell
+        token.transfer(user1, userBalance);
         
-        // Try to sell more than maxTx
+        // Re-enable limits for user1 to test the maxTx restriction
+        // Note: Can't re-enable after trading is enabled, so we'll use a different approach
+        // Instead, we test with user2 who is NOT excluded
+        
+        // Give user2 tokens via user1 (no limits on user1)
+        vm.prank(user1);
+        token.transfer(user2, MAX_WALLET);
+        
+        // Now user2 has MAX_WALLET tokens and is subject to limits
+        // Try to have user2 sell more than maxTx
+        // Since MAX_TX == MAX_WALLET, user2 can't actually hold more than maxTx
+        // So we test that selling exactly MAX_WALLET (which equals MAX_TX) works
+        // and selling MAX_TX + 1 would require more tokens than user2 has
+        
+        // The real test: user2 with MAX_WALLET tokens tries to sell MAX_TX + 1
+        // This should revert with "Sell exceeds maxTx" because amount > MAX_TX
+        // But user2 only has MAX_WALLET = MAX_TX tokens, so this will revert first with insufficient balance
+        
+        // Correct approach: Test that a sell of exactly MAX_TX succeeds, and MAX_TX + 1 fails
+        // Since we can't give user2 more than MAX_TX tokens, we verify the limit with the exact amount
         uint256 sellAmount = MAX_TX + 1;
         
-        vm.prank(user1);
+        // This should revert - either because user2 doesn't have enough tokens, 
+        // or because it exceeds maxTx. The maxTx check happens first in the contract.
+        vm.prank(user2);
         vm.expectRevert("Sell exceeds maxTx");
         token.transfer(pair, sellAmount);
     }
@@ -616,6 +649,9 @@ contract KindoraTest is Test {
         
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
+        
+        // Advance time to ensure first buy works
+        vm.warp(block.timestamp + 11);
         
         // First, give user1 some tokens (less than max wallet)
         vm.prank(pair);
@@ -666,6 +702,9 @@ contract KindoraTest is Test {
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
+        // Advance time to avoid buy cooldown (excluded users skip cooldown too, but let's be safe)
+        vm.warp(block.timestamp + 11);
+        
         // User1 can buy more than maxTx because they're excluded
         uint256 buyAmount = MAX_TX * 2;
         
@@ -687,6 +726,9 @@ contract KindoraTest is Test {
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
+        // Advance time to ensure first buy works (timestamp must be >= 10 for new buyers)
+        vm.warp(block.timestamp + 11);
+        
         // First buy
         uint256 buyAmount = 1000 * 1e18;
         
@@ -705,6 +747,9 @@ contract KindoraTest is Test {
         
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
+        
+        // Advance time to ensure first buy works (timestamp must be >= 10 for new buyers)
+        vm.warp(block.timestamp + 11);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
@@ -734,6 +779,9 @@ contract KindoraTest is Test {
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
+        // Advance time to be safe
+        vm.warp(block.timestamp + 11);
+        
         // First buy
         uint256 buyAmount = 1000 * 1e18;
         
@@ -757,6 +805,9 @@ contract KindoraTest is Test {
         
         // Transfer tokens to pair
         token.transfer(pair, TOTAL_SUPPLY / 2);
+        
+        // Advance time to be safe (though cooldown is disabled)
+        vm.warp(block.timestamp + 11);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
