@@ -178,6 +178,8 @@ contract KindoraTest is Test {
     uint256 public constant SWAP_THRESHOLD = (TOTAL_SUPPLY * 5) / 10_000; // 0.05%
     uint256 public constant MAX_TX = (TOTAL_SUPPLY * 2) / 100; // 2%
     uint256 public constant MAX_WALLET = (TOTAL_SUPPLY * 2) / 100; // 2%
+    uint256 public constant BUY_COOLDOWN_SECONDS = 10;
+    uint256 public constant COOLDOWN_OFFSET = BUY_COOLDOWN_SECONDS + 1;
 
     // Events to test
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -328,7 +330,7 @@ contract KindoraTest is Test {
         token.transfer(pair, pairLiquidity);
         
         // Advance time to avoid buy cooldown
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // Simulate buy: transfer from pair to user1
         uint256 buyAmount = 10_000 * 1e18;
@@ -356,7 +358,7 @@ contract KindoraTest is Test {
         token.transfer(pair, 100_000 * 1e18);
         
         // Advance time to avoid buy cooldown
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         uint256 buyAmount = 10_000 * 1e18;
         uint256 burnAmount = (buyAmount * 1) / 100;
@@ -377,7 +379,7 @@ contract KindoraTest is Test {
         token.transfer(pair, 100_000 * 1e18);
         
         // Advance time to avoid buy cooldown
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         uint256 buyAmount = 20_000 * 1e18;
         
@@ -593,7 +595,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to avoid buy cooldown
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // Try to buy more than maxTx
         uint256 buyAmount = MAX_TX + 1;
@@ -651,14 +653,14 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to ensure first buy works
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // First, give user1 some tokens (less than max wallet)
         vm.prank(pair);
         token.transfer(user1, MAX_WALLET / 2);
         
         // Wait for cooldown
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // Try to buy more that would exceed maxWallet
         // User1 has MAX_WALLET/2, try to buy another MAX_WALLET/2 + some
@@ -703,7 +705,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to avoid buy cooldown (excluded users skip cooldown too, but let's be safe)
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // User1 can buy more than maxTx because they're excluded
         uint256 buyAmount = MAX_TX * 2;
@@ -727,7 +729,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to ensure first buy works (timestamp must be >= 10 for new buyers)
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
@@ -749,7 +751,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to ensure first buy works (timestamp must be >= 10 for new buyers)
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
@@ -758,7 +760,7 @@ contract KindoraTest is Test {
         token.transfer(user1, buyAmount);
         
         // Wait for cooldown (10 seconds)
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // Second buy should succeed
         vm.prank(pair);
@@ -780,7 +782,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to be safe
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
@@ -807,7 +809,7 @@ contract KindoraTest is Test {
         token.transfer(pair, TOTAL_SUPPLY / 2);
         
         // Advance time to be safe (though cooldown is disabled)
-        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + COOLDOWN_OFFSET);
         
         // First buy
         uint256 buyAmount = 1000 * 1e18;
