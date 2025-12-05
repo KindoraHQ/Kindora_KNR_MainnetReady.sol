@@ -606,40 +606,19 @@ contract KindoraTest is Test {
     }
 
     function test_AntiWhale_MaxTxOnSell() public {
-        // Exclude user1 from limits to receive more than MAX_WALLET tokens
-        token.setExcludedFromLimits(user1, true);
-        
         // Enable trading
         token.enableTrading();
         
-        // Give user1 more than MAX_TX tokens (owner is excluded from limits, so transfer works)
-        uint256 userBalance = MAX_TX + 100 * 1e18; // Give enough to attempt over-limit sell
-        token.transfer(user1, userBalance);
-        
-        // Re-enable limits for user1 to test the maxTx restriction
-        // Note: Can't re-enable after trading is enabled, so we'll use a different approach
-        // Instead, we test with user2 who is NOT excluded
-        
-        // Give user2 tokens via user1 (no limits on user1)
-        vm.prank(user1);
-        token.transfer(user2, MAX_WALLET);
-        
-        // Now user2 has MAX_WALLET tokens and is subject to limits
-        // Try to have user2 sell more than maxTx
-        // Since MAX_TX == MAX_WALLET, user2 can't actually hold more than maxTx
-        // So we test that selling exactly MAX_WALLET (which equals MAX_TX) works
-        // and selling MAX_TX + 1 would require more tokens than user2 has
-        
-        // The real test: user2 with MAX_WALLET tokens tries to sell MAX_TX + 1
-        // This should revert with "Sell exceeds maxTx" because amount > MAX_TX
-        // But user2 only has MAX_WALLET = MAX_TX tokens, so this will revert first with insufficient balance
-        
-        // Correct approach: Test that a sell of exactly MAX_TX succeeds, and MAX_TX + 1 fails
-        // Since we can't give user2 more than MAX_TX tokens, we verify the limit with the exact amount
+        // Give user2 more than MAX_TX tokens
+        // Owner is excluded from limits, so this transfer succeeds regardless of user2's limit status
         uint256 sellAmount = MAX_TX + 1;
+        token.transfer(user2, sellAmount);
         
-        // This should revert - either because user2 doesn't have enough tokens, 
-        // or because it exceeds maxTx. The maxTx check happens first in the contract.
+        // Verify user2 has the tokens
+        assertEq(token.balanceOf(user2), sellAmount, "User2 should have sellAmount tokens");
+        
+        // Now user2 (not excluded) tries to sell more than maxTx to pair (not excluded)
+        // The maxTx check should trigger and revert
         vm.prank(user2);
         vm.expectRevert("Sell exceeds maxTx");
         token.transfer(pair, sellAmount);
