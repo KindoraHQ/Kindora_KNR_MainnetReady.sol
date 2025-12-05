@@ -340,7 +340,7 @@ contract KindoraTest is Test {
         // Calculate expected amounts
         uint256 taxAmount = (buyAmount * 5) / 100; // 5% tax
         uint256 burnAmount = (buyAmount * 1) / 100; // 1% burn
-        uint256 contractAmount = taxAmount - burnAmount; // 4% to contract
+        uint256 contractAmount = taxAmount - burnAmount; // 4% to contract (3% charity + 1% liquidity, accumulated for swapBack)
         uint256 receivedAmount = buyAmount - taxAmount; // 95%
         
         // Verify balances
@@ -380,7 +380,7 @@ contract KindoraTest is Test {
         token.transfer(user1, buyAmount);
         
         // 1% burn = 200 tokens
-        // 4% to contract = 800 tokens
+        // 4% to contract = 800 tokens (3% charity + 1% liquidity, accumulated for swapBack)
         // 95% to buyer = 19,000 tokens
         assertEq(token.balanceOf(user1), 19_000 * 1e18, "Buyer gets 95%");
         assertEq(token.balanceOf(token.deadAddress()), 200 * 1e18, "1% burned");
@@ -431,7 +431,7 @@ contract KindoraTest is Test {
         
         // Give user1 enough tokens to trigger swapBack
         // SwapThreshold is 0.05% of supply = 5000 tokens
-        // 4% of sell goes to contract, so we need to sell enough
+        // 4% of sell goes to contract (3% charity + 1% liquidity portions), so we need to sell enough
         // To get 5000 tokens in contract, need to sell 5000 / 0.04 = 125,000 tokens
         uint256 userBalance = MAX_TX; // Use max allowed for single transaction
         token.transfer(user1, userBalance);
