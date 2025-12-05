@@ -1,0 +1,13 @@
+# Foundry
+cache/
+out/
+
+# Dependencies (installed via forge install)
+lib/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
