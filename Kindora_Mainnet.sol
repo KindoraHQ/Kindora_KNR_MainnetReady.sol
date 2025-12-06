@@ -103,10 +103,20 @@ contract Kindora is IERC20Metadata {
         _;
     }
 
+    // Slither: reentrancy protection modifier
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+
     function renounceOwnership() external onlyOwner {
         require(tradingEnabled, "Trading not enabled");
         require(charityWalletLocked, "Charity wallet not locked");
+        address oldOwner = owner;
         owner = address(0);
+        emit OwnershipTransferred(oldOwner, address(0));
     }
 
     // Addresses
@@ -116,7 +126,8 @@ contract Kindora is IERC20Metadata {
     IUniswapV2Router02 public immutable router;
     address public immutable pair;
 
-    address public charityWallet;
+    // Slither: address payable to avoid repeated casts
+    address payable public charityWallet;
     bool public charityWalletLocked;
 
     // Fixed tax configuration
@@ -148,6 +159,11 @@ contract Kindora is IERC20Metadata {
     // Internal swap flag
     bool private _swapping;
 
+    // Reentrancy guard state (Slither: reentrancy protection)
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
+
     // Events for dashboard & transparency
     event SwapBack(
         uint256 tokensSwapped,
@@ -164,9 +180,13 @@ contract Kindora is IERC20Metadata {
     event LimitsInEffectSet(bool enabled);
     event MaxTxUpdated(uint256 maxTx);
     event MaxWalletUpdated(uint256 maxWallet);
+    // Slither: ownership notification event
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor(address _router) {
         owner = msg.sender;
+        // Slither: initialize reentrancy guard
+        _status = _NOT_ENTERED;
 
         // BSC mainnet PancakeV2 router:
         // 0x10ED43C718714eb63d5aA57B78B54704E256024E
@@ -199,6 +219,8 @@ contract Kindora is IERC20Metadata {
         maxWalletAmount = twoPercent;
 
         emit Transfer(address(0), owner, _totalSupply);
+        // Slither: emit ownership notification
+        emit OwnershipTransferred(address(0), owner);
     }
 
     // ERC20 view functions
@@ -285,8 +307,8 @@ contract Kindora is IERC20Metadata {
         emit Approval(_owner, spender, amount);
     }
 
-    // Config: charity wallet
-    function setCharityWallet(address _wallet) external onlyOwner {
+    // Config: charity wallet (Slither: address payable parameter)
+    function setCharityWallet(address payable _wallet) external onlyOwner {
         require(!charityWalletLocked, "Charity wallet locked");
         require(_wallet != address(0), "Zero address");
         charityWallet = _wallet;
@@ -377,6 +399,8 @@ contract Kindora is IERC20Metadata {
             );
         }
 
+        // Slither: explicit balance check before subtraction
+        require(_balances[from] >= amount, "ERC20: transfer amount exceeds balance");
         _balances[from] -= amount;
 
         bool isBuy = (from == pair && to != address(router));
@@ -456,8 +480,8 @@ contract Kindora is IERC20Metadata {
         emit Transfer(from, to, transferAmount);
     }
 
-    // Swapback logic
-    function _swapBack(uint256 tokenAmount) private {
+    // Swapback logic (Slither: nonReentrant for external calls)
+    function _swapBack(uint256 tokenAmount) private nonReentrant {
         if (tokenAmount == 0) return;
 
         _swapping = true;
@@ -495,10 +519,9 @@ contract Kindora is IERC20Metadata {
             emit LiquidityAdded(tokensForLiquidity, bnbForLiquidity);
         }
 
+        // Slither: charityWallet is already payable, direct call without cast
         if (charityWallet != address(0) && bnbForCharity > 0) {
-            (bool success, ) = payable(charityWallet).call{
-                value: bnbForCharity
-            }("");
+            (bool success, ) = charityWallet.call{value: bnbForCharity}("");
             if (success) {
                 emit CharityFunded(bnbForCharity);
             }
@@ -509,22 +532,24 @@ contract Kindora is IERC20Metadata {
         _swapping = false;
     }
 
-  function _swapTokensForBNB(uint256 tokenAmount) private {
-    _approve(address(this), address(router), tokenAmount);
+    // Slither: external call to router
+    function _swapTokensForBNB(uint256 tokenAmount) private {
+        _approve(address(this), address(router), tokenAmount);
 
-    address[] memory path = new address[](2); // <-- Fix: Declare path
-    path[0] = address(this);
-    path[1] = router.WETH();
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = router.WETH();
 
-    router.swapExactTokensForETHSupportingFeeOnTransferTokens(
-        tokenAmount,
-        0,
-        path,
-        address(this),
-        block.timestamp
-    );
-}
+        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            tokenAmount,
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+    }
 
+    // Slither: external call to router
     function _addLiquidity(uint256 tokenAmount, uint256 bnbAmount) private {
         _approve(address(this), address(router), tokenAmount);
 
@@ -542,9 +567,11 @@ contract Kindora is IERC20Metadata {
     receive() external payable {}
 
     // Rescue NON-KNR, NON-LP tokens mistakenly sent to this contract
+    // Slither: nonReentrant for external call safety
     function rescueTokens(address token, uint256 amount)
         external
         onlyOwner
+        nonReentrant
     {
         require(token != address(this), "Cannot rescue KNR");
         require(token != pair, "Cannot rescue LP");
