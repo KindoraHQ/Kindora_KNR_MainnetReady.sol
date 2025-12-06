@@ -1,0 +1,36 @@
+name: Slither static analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  slither:
+    name: Run Slither
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Slither
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer
+
+      - name: Install Foundry (nightly)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: 'nightly'
+
+      - name: Install forge-std
+        run: forge install foundry-rs/forge-std --no-git --quiet
+
+      - name: Run Slither
+        run: slither ./Kindora_Mainnet.sol --filter-paths "lib|test|script" --print human-summary
