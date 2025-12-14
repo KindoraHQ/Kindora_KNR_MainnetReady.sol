@@ -1,6 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { time, setBalance } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Kindora Token - Comprehensive Test Suite", function () {
   let token;
@@ -228,6 +228,8 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       await token.enableTrading();
       // Transfer tokens to pair to simulate liquidity
       await token.transfer(pair, ethers.parseEther("100000"));
+      // Fund pair with ETH for gas when impersonated
+      await setBalance(pair, ethers.parseEther("100"));
     });
 
     it("Should apply 5% tax on buys", async function () {
@@ -381,6 +383,8 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
   describe("Anti-Whale Protection", function () {
     beforeEach(async function () {
       await token.enableTrading();
+      // Fund pair with ETH for gas when impersonated
+      await setBalance(pair, ethers.parseEther("100"));
     });
 
     it("Should enforce maxTxAmount on buys", async function () {
@@ -452,6 +456,7 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       await token2.enableTrading();
       
       await token2.transfer(pair2, TOTAL_SUPPLY / 2n);
+      await setBalance(pair2, ethers.parseEther("100"));
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       
       const buyAmount = MAX_TX * 2n;
@@ -488,6 +493,8 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     beforeEach(async function () {
       await token.enableTrading();
       await token.transfer(pair, TOTAL_SUPPLY / 2n);
+      // Fund pair with ETH for gas when impersonated
+      await setBalance(pair, ethers.parseEther("100"));
     });
 
     it("Should enforce cooldown on consecutive buys", async function () {
@@ -537,6 +544,7 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       await token2.enableTrading();
       await token2.transfer(pair2, TOTAL_SUPPLY / 2n);
       
+      await setBalance(pair2, ethers.parseEther("100"));
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       
       const buyAmount = ethers.parseEther("1000");
@@ -777,6 +785,9 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       // Setup liquidity
       await token.transfer(pair, ethers.parseEther("100000"));
       
+      // Fund pair with ETH for gas when impersonated
+      await setBalance(pair, ethers.parseEther("100"));
+      
       // Buy
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       const buyAmount = ethers.parseEther("10000");
@@ -796,6 +807,9 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     it("Should handle multiple users trading", async function () {
       await token.enableTrading();
       await token.transfer(pair, ethers.parseEther("1000000"));
+      
+      // Fund pair with ETH for gas when impersonated
+      await setBalance(pair, ethers.parseEther("100"));
       
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       
