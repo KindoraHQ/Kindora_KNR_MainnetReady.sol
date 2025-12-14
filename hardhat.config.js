@@ -14,6 +14,10 @@ module.exports = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
+      mining: {
+        auto: true,
+        interval: 0
+      }
     },
   },
   paths: {
@@ -23,4 +27,5 @@ module.exports = {
     artifacts: "./artifacts"
   }
 };
+
 

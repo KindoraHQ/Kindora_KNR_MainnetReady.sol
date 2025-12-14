@@ -29,7 +29,7 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     // Fund router with ETH for simulating swaps
     await owner.sendTransaction({
       to: await router.getAddress(),
-      value: ethers.parseEther("1000")
+      value: ethers.parseEther("100")
     });
 
     // Deploy Kindora token
@@ -356,7 +356,7 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       const router2 = await MockRouter2.deploy();
       await owner.sendTransaction({
         to: await router2.getAddress(),
-        value: ethers.parseEther("1000")
+        value: ethers.parseEther("10")
       });
       
       const Kindora2 = await ethers.getContractFactory("Kindora");
@@ -435,17 +435,30 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     });
 
     it("Should allow excluded addresses to bypass limits", async function () {
-      await token.setExcludedFromLimits(user1.address, true);
-      await token.enableTrading();
+      // Deploy new token for this test since we need to set exclusions before trading
+      const MockRouter2 = await ethers.getContractFactory("MockRouter");
+      const router2 = await MockRouter2.deploy();
+      await owner.sendTransaction({
+        to: await router2.getAddress(),
+        value: ethers.parseEther("10")
+      });
       
-      await token.transfer(pair, TOTAL_SUPPLY / 2n);
+      const Kindora2 = await ethers.getContractFactory("Kindora");
+      const token2 = await Kindora2.deploy(await router2.getAddress());
+      const pair2 = await token2.pair();
+      
+      await token2.setCharityWallet(charityWallet.address);
+      await token2.setExcludedFromLimits(user1.address, true);
+      await token2.enableTrading();
+      
+      await token2.transfer(pair2, TOTAL_SUPPLY / 2n);
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       
       const buyAmount = MAX_TX * 2n;
-      const pairSigner = await ethers.getImpersonatedSigner(pair);
+      const pairSigner = await ethers.getImpersonatedSigner(pair2);
       
-      await token.connect(pairSigner).transfer(user1.address, buyAmount);
-      expect(await token.balanceOf(user1.address)).to.be.gt(0);
+      await token2.connect(pairSigner).transfer(user1.address, buyAmount);
+      expect(await token2.balanceOf(user1.address)).to.be.gt(0);
     });
 
     it("Should allow owner to loosen maxTx after launch", async function () {
@@ -507,19 +520,32 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     });
 
     it("Should not apply cooldown to excluded addresses", async function () {
-      await token.setExcludedFromLimits(user1.address, true);
-      await token.enableTrading();
-      await token.transfer(pair, TOTAL_SUPPLY / 2n);
+      // Deploy new token for this test since we need to set exclusions before trading
+      const MockRouter2 = await ethers.getContractFactory("MockRouter");
+      const router2 = await MockRouter2.deploy();
+      await owner.sendTransaction({
+        to: await router2.getAddress(),
+        value: ethers.parseEther("10")
+      });
+      
+      const Kindora2 = await ethers.getContractFactory("Kindora");
+      const token2 = await Kindora2.deploy(await router2.getAddress());
+      const pair2 = await token2.pair();
+      
+      await token2.setCharityWallet(charityWallet.address);
+      await token2.setExcludedFromLimits(user1.address, true);
+      await token2.enableTrading();
+      await token2.transfer(pair2, TOTAL_SUPPLY / 2n);
       
       await time.increase(BUY_COOLDOWN_SECONDS + 1);
       
       const buyAmount = ethers.parseEther("1000");
-      const pairSigner = await ethers.getImpersonatedSigner(pair);
+      const pairSigner = await ethers.getImpersonatedSigner(pair2);
       
-      await token.connect(pairSigner).transfer(user1.address, buyAmount);
-      await token.connect(pairSigner).transfer(user1.address, buyAmount);
+      await token2.connect(pairSigner).transfer(user1.address, buyAmount);
+      await token2.connect(pairSigner).transfer(user1.address, buyAmount);
       
-      expect(await token.balanceOf(user1.address)).to.be.gt(buyAmount);
+      expect(await token2.balanceOf(user1.address)).to.be.gt(buyAmount);
     });
 
     it("Should allow disabling cooldown", async function () {
@@ -552,6 +578,7 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
     });
 
     it("Should lock charity wallet after trading enabled", async function () {
+      await token.enableTrading();
       expect(await token.charityWalletLocked()).to.be.true;
       
       await expect(

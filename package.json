@@ -7,9 +7,9 @@
     "test": "test"
   },
   "scripts": {
-    "test": "hardhat test",
-    "test:coverage": "hardhat coverage",
-    "compile": "hardhat compile"
+    "test": "node compile.js && hardhat test",
+    "test:coverage": "node compile.js && hardhat coverage",
+    "compile": "node compile.js"
   },
   "keywords": [],
   "author": "",
