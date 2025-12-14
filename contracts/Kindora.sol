@@ -512,7 +512,7 @@ contract Kindora is IERC20Metadata {
   function _swapTokensForBNB(uint256 tokenAmount) private {
     _approve(address(this), address(router), tokenAmount);
 
-    address[] memory path = new address[](2); // <-- Fix: Declares path
+    address[] memory path = new address[](2);
     path[0] = address(this);
     path[1] = router.WETH();
 
