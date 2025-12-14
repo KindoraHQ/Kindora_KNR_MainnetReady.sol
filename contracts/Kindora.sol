@@ -118,6 +118,7 @@ contract Kindora is IERC20Metadata {
 
     address public charityWallet;
     bool public charityWalletLocked;
+    uint256 public pendingCharityBNB;
 
     // Fixed tax configuration
     uint256 public constant TAX_TOTAL = 5;      // 5%
@@ -496,11 +497,15 @@ contract Kindora is IERC20Metadata {
         }
 
         if (charityWallet != address(0) && bnbForCharity > 0) {
+            uint256 totalCharity = pendingCharityBNB + bnbForCharity;
             (bool success, ) = payable(charityWallet).call{
-                value: bnbForCharity
+                value: totalCharity
             }("");
             if (success) {
-                emit CharityFunded(bnbForCharity);
+                pendingCharityBNB = 0;
+                emit CharityFunded(totalCharity);
+            } else {
+                pendingCharityBNB = totalCharity;
             }
         }
 
