@@ -7,7 +7,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "node compile.js && hardhat test",
+    "test": "node compile.js && hardhat test --no-compile",
     "test:coverage": "node compile.js && hardhat coverage",
     "compile": "node compile.js"
   },
