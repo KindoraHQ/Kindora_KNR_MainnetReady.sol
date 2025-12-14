@@ -5,6 +5,13 @@ out/
 # Dependencies (installed via forge install)
 lib/
 
+# Hardhat
+node_modules/
+artifacts/
+coverage/
+coverage.json
+typechain-types/
+
 # IDE
 .idea/
 .vscode/
