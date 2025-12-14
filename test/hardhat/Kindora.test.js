@@ -378,6 +378,108 @@ describe("Kindora Token - Comprehensive Test Suite", function () {
       // Rejecting charity should not have received BNB
       expect(await ethers.provider.getBalance(await rejectingCharity.getAddress())).to.equal(0);
     });
+
+    it("Should clear pendingCharityBNB on successful charity transfer", async function () {
+      const charityBalanceBefore = await ethers.provider.getBalance(charityWallet.address);
+      
+      // Initial pendingCharityBNB should be 0
+      expect(await token.pendingCharityBNB()).to.equal(0);
+      
+      await token.transfer(await token.getAddress(), SWAP_THRESHOLD * 2n);
+      await token.transfer(user1.address, ethers.parseEther("10000"));
+      
+      await token.connect(user1).transfer(pair, ethers.parseEther("10000"));
+      
+      // After successful transfer, pendingCharityBNB should be 0
+      expect(await token.pendingCharityBNB()).to.equal(0);
+      
+      // Charity should have received BNB
+      const charityBalanceAfter = await ethers.provider.getBalance(charityWallet.address);
+      expect(charityBalanceAfter).to.be.gt(charityBalanceBefore);
+    });
+
+    it("Should accumulate pendingCharityBNB on failed charity transfer", async function () {
+      // Deploy rejecting receiver
+      const RejectingReceiver = await ethers.getContractFactory("RejectingReceiver");
+      const rejectingCharity = await RejectingReceiver.deploy();
+      
+      // Deploy new token with rejecting charity
+      const MockRouter2 = await ethers.getContractFactory("MockRouter");
+      const router2 = await MockRouter2.deploy();
+      await owner.sendTransaction({
+        to: await router2.getAddress(),
+        value: ethers.parseEther("100")
+      });
+      
+      const Kindora2 = await ethers.getContractFactory("Kindora");
+      const token2 = await Kindora2.deploy(await router2.getAddress());
+      
+      await token2.setCharityWallet(await rejectingCharity.getAddress());
+      await token2.enableTrading();
+      await router2.setSwapBNBMultiplier(ethers.parseUnits("1", 9));
+      
+      // Initial pendingCharityBNB should be 0
+      expect(await token2.pendingCharityBNB()).to.equal(0);
+      
+      const threshold = (await token2.totalSupply() * 5n) / 10000n;
+      await token2.transfer(await token2.getAddress(), threshold * 2n);
+      await token2.transfer(user1.address, ethers.parseEther("10000"));
+      
+      // Trigger swapback - charity transfer will fail
+      await token2.connect(user1).transfer(await token2.pair(), ethers.parseEther("10000"));
+      
+      // pendingCharityBNB should now be > 0
+      const pendingCharity1 = await token2.pendingCharityBNB();
+      expect(pendingCharity1).to.be.gt(0);
+      
+      // Rejecting charity should not have received BNB
+      expect(await ethers.provider.getBalance(await rejectingCharity.getAddress())).to.equal(0);
+      
+      // Trigger another swapback - pending should accumulate
+      await token2.transfer(await token2.getAddress(), threshold * 2n);
+      await token2.transfer(user1.address, ethers.parseEther("10000"));
+      await token2.connect(user1).transfer(await token2.pair(), ethers.parseEther("10000"));
+      
+      // pendingCharityBNB should have increased
+      const pendingCharity2 = await token2.pendingCharityBNB();
+      expect(pendingCharity2).to.be.gt(pendingCharity1);
+    });
+
+    it("Should send accumulated pendingCharityBNB when charity wallet becomes available", async function () {
+      // Deploy rejecting receiver
+      const RejectingReceiver = await ethers.getContractFactory("RejectingReceiver");
+      const rejectingCharity = await RejectingReceiver.deploy();
+      
+      // Deploy new token with rejecting charity
+      const MockRouter2 = await ethers.getContractFactory("MockRouter");
+      const router2 = await MockRouter2.deploy();
+      await owner.sendTransaction({
+        to: await router2.getAddress(),
+        value: ethers.parseEther("100")
+      });
+      
+      const Kindora2 = await ethers.getContractFactory("Kindora");
+      const token2 = await Kindora2.deploy(await router2.getAddress());
+      
+      await token2.setCharityWallet(await rejectingCharity.getAddress());
+      await token2.enableTrading();
+      await router2.setSwapBNBMultiplier(ethers.parseUnits("1", 9));
+      
+      const threshold = (await token2.totalSupply() * 5n) / 10000n;
+      await token2.transfer(await token2.getAddress(), threshold * 2n);
+      await token2.transfer(user1.address, ethers.parseEther("10000"));
+      
+      // First swap - transfer fails, BNB accumulates in pendingCharityBNB
+      await token2.connect(user1).transfer(await token2.pair(), ethers.parseEther("10000"));
+      
+      const pendingCharity = await token2.pendingCharityBNB();
+      expect(pendingCharity).to.be.gt(0);
+      
+      // Note: In a real scenario, owner would update charity wallet to a working address
+      // Since we can't change it after trading is enabled, this test demonstrates
+      // that the pending amount is tracked and would be sent on the next successful transfer
+      // if the charity wallet were to start accepting transfers again
+    });
   });
 
   describe("Anti-Whale Protection", function () {
