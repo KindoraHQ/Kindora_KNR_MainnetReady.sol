@@ -172,7 +172,7 @@ contract KindoraTest is Test {
     address public owner = address(this);
     address public user1 = address(0x1);
     address public user2 = address(0x2);
-    address public charityWallet = address(0x3);
+    address payable public charityWallet = payable(address(0x3));
     
     uint256 public constant TOTAL_SUPPLY = 10_000_000 * 1e18;
     uint256 public constant SWAP_THRESHOLD = (TOTAL_SUPPLY * 5) / 10_000; // 0.05%
@@ -189,6 +189,7 @@ contract KindoraTest is Test {
     event CharityFunded(uint256 bnbAmount);
     event TokensBurned(uint256 amount);
     event TradingEnabled();
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     function setUp() public {
         // Deploy mock router
@@ -538,7 +539,7 @@ contract KindoraTest is Test {
         Kindora newToken = new Kindora(address(newRouter));
         
         // Set rejecting charity wallet
-        newToken.setCharityWallet(address(rejectingCharity));
+        newToken.setCharityWallet(payable(address(rejectingCharity)));
         newToken.enableTrading();
         
         // Configure router
@@ -859,7 +860,7 @@ contract KindoraTest is Test {
         
         // Try to change charity wallet - should revert
         vm.expectRevert("Charity wallet locked");
-        token.setCharityWallet(user1);
+        token.setCharityWallet(payable(user1));
     }
 
     function test_OwnerRestrictions_CanStillToggleSwapAndCooldown() public {
@@ -966,6 +967,10 @@ contract KindoraTest is Test {
         
         // Verify charity wallet is locked
         assertTrue(token.charityWalletLocked(), "Charity wallet should be locked");
+        
+        // Expect OwnershipTransferred event
+        vm.expectEmit(true, true, false, true);
+        emit OwnershipTransferred(owner, address(0));
         
         // Renounce ownership
         token.renounceOwnership();
